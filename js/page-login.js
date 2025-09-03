@@ -28,7 +28,7 @@ const emailError = document.getElementById('emailError');
 const passwordError = document.getElementById('passwordError');
 
 // FastAPI base URL
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "https://3fbe9a9d6d60.ngrok-free.app/";
 
 // 通用请求函数
 async function makeRequest(url, options = {}) {
@@ -183,4 +183,5 @@ window.addEventListener('load', async() => {
             passwordError.style.display = 'none';
         }
     });
+
 });

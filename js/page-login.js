@@ -6,7 +6,6 @@ const passwordInput = document.getElementById('password');
 togglePassword.addEventListener('click', () => {
     const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
     passwordInput.setAttribute('type', type);
-    
     // 切换图标
     const icon = togglePassword.querySelector('i');
     if (type === 'text') {
@@ -17,9 +16,6 @@ togglePassword.addEventListener('click', () => {
         icon.classList.add('fa-eye-slash');
     }
 });
-
-
-
 // 表单提交处理
 const loginForm = document.getElementById('loginForm');
 const loginBtn = document.getElementById('loginBtn');
@@ -28,7 +24,7 @@ const emailError = document.getElementById('emailError');
 const passwordError = document.getElementById('passwordError');
 
 // FastAPI base URL
-const API_URL = "https://3fbe9a9d6d60.ngrok-free.app/";
+const API_URL = "https://3fbe9a9d6d60.ngrok-free.app";
 
 // 通用请求函数
 async function makeRequest(url, options = {}) {
@@ -96,60 +92,83 @@ loginForm.addEventListener('submit', async (e) => {
     // 邮箱验证
     const email = emailInput.value.trim();
     if (!validateEmail(email)) {
+        emailError.textContent = '请输入有效的邮箱地址';
         emailError.style.display = 'block';
         isValid = false;
     } else {
         emailError.style.display = 'none';
     }
+    //Fetch email -> {password,userId} from server.
+    var userInfo;
+    try{
+        userInfo=await makeRequest(`${API_URL}/login`,{
+            method:"POST",
+            body:JSON.stringify({mail:email})
+        });
+        if(userInfo[0] && typeof userInfo[0]=="string")
+        {
+            emailError.style.display='none';
+        }else
+        {
+            emailError.textContent="邮箱未注册";
+            emailError.style.display='block';
+            isValid=false;
+        }
+    }catch(error){
+        isValid=false;
+        console.warn("Login failed:",error);
+        alert("Login failed, please try again later.");
+    }
 
     // 密码验证
     const password = passwordInput.value.trim();
     if (password === '') {
+        passwordError.textContent = '请输入密码';
         passwordError.style.display = 'block';
         isValid = false;
     } else {
         passwordError.style.display = 'none';
     }
+    if(password===userInfo[0])
+    {
+        passwordError.style.display='none';
+    }else if(userInfo[0] && typeof userInfo[0]=="string")
+    {
+        passwordError.textContent='密码与邮箱不匹配';
+        passwordError.style.display='block';
+        isValid=false;
+    }
 
-    // 如果验证通过，发送登录请求
+    localStorage.setItem("currentUserId",userInfo[1]);
+
+    // 如果验证通过，执行登录
     if (isValid) {
         // 显示加载状态
         loginBtn.disabled = true;
         loginBtn.innerHTML = '<span class="loading-spinner"></span> 登录中...';
-
-        try {
-            // 发送登录请求到FastAPI后端
-            const data = await makeRequest(`${API_URL}/login`, {
-                method: "POST",
-                body: JSON.stringify({ email, password })
-            });
-
-            // 登录成功
-            alert('登录成功！即将跳转到首页');
-            
-            // 检查"记住我"选项
-            const rememberMe = document.getElementById('rememberMe').checked;
-            if (rememberMe) {
-                // 保存邮箱到localStorage
-                localStorage.setItem('savedEmail', email);
-                // 保存token到localStorage
-                localStorage.setItem('authToken', data.access_token);
-            } else {
-                localStorage.removeItem('savedEmail');
-                localStorage.removeItem('authToken');
+        // 登录成功
+        alert('登录成功！即将跳转到首页');
+        
+        // 检查"记住我"选项
+        const rememberMe = document.getElementById('rememberMe').checked;
+        if (rememberMe) {
+            // 保存邮箱到localStorage
+            localStorage.setItem('savedEmail', email);
+            const hasSavedPassword=await savedPassword(email,getCookie("authToken"));
+            if(hasSavedPassword==null)
+            {
+                let token=await requestToken(email);
+                setCookie("authToken",token,7);
             }
-
-            // 跳转到首页
-            window.location.href = "page-translate.html";
-            
-        } catch (error) {
-            // 登录失败
-            alert('登录失败: ' + error.message);
-            
-            // 重置按钮状态
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = '登录';
+        } else {
+            localStorage.removeItem('savedEmail');
         }
+
+        // 跳转到首页
+        window.location.href = "page-translate.html";
+        // 重置按钮状态
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '登录';
     }
 });
 
@@ -158,9 +177,33 @@ function validateEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 }
-
+async function savedPassword(account,token)
+{
+    if(token && typeof token == "string")
+    {
+        try{
+            const data=await makeRequest(`${API_URL}/password`,{
+                method:"POST",
+                body:JSON.stringify({
+                    email:account,
+                    token:token
+                })
+            })
+            return data;
+        }catch(error)
+        {
+            console.warn("Failed to fetch password accordingly, automatic password filling may not work.");
+            console.error("Failed to read password accordingly.",error);
+            return null;
+        }
+    }else
+    {
+        return null;
+    }
+}
 // 页面加载时检查是否有保存的邮箱
 window.addEventListener('load', async() => {
+    localStorage.removeItem("currentUserId");
     const savedEmail = localStorage.getItem('savedEmail');
     if (savedEmail) {
         emailInput.value = savedEmail;
@@ -183,5 +226,4 @@ window.addEventListener('load', async() => {
             passwordError.style.display = 'none';
         }
     });
-
 });

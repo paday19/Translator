@@ -157,7 +157,7 @@ loginForm.addEventListener('submit', async (e) => {
             localStorage.removeItem('savedEmail');
         }
         // 跳转到首页
-        window.location.href = "page-translate.html";
+        window.location.href = "index.html";
         // 重置按钮状态
         loginBtn.disabled = false;
         loginBtn.innerHTML = '登录';
